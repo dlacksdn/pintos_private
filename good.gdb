@@ -73,7 +73,7 @@ define sall
     while ($e != &all_list.tail)
         set $t = (struct thread *)((char *)$e - 32)
         printf "%-5d %-16s", $t->tid, $t->name
-        
+
         if $t->status == THREAD_RUNNING
             printf " running\n"
         else
@@ -110,5 +110,56 @@ define sizeof
     printf "%-15s : %d\n", "tick_to_awake",   sizeof(((struct thread*)0)->tick_to_awake)
     printf "%-15s : %d\n", "elem",            sizeof(((struct thread*)0)->elem)
     printf "%-15s : %d\n", "magic",           sizeof(((struct thread*)0)->magic)
+end
+
+
+
+# idle_thread 포함
+# 함수를 지정하면 그 함수가 호출되는 타이밍의 running_thread를 출력한다
+define trace_run
+    
+    b $arg0 
+    commands
+    silent
+    end
+    c
+    set $i = 0
+
+    while($i < 100000)
+        set $cur = (struct thread *)((int)$esp & ~0xfff)
+
+        if($cur != -1)
+            p ::ticks
+            printf "RUNNING THREAD: tid= %-5d name= %-10s\n", $cur->tid, $cur->name
+        end
+
+        set $i = $i + 1
+        c
+    end
+end
+
+# idle_thread 배제
+# 함수를 지정하면 그 함수가 호출되는 타이밍의 running_thread를 출력한다
+define test_trace
+
+    b $arg0 
+    commands
+    silent
+    end
+    c
+    set $i = 0
+
+    while($i < 100000)
+        set $cur = (struct thread *)((int)$esp & ~0xfff)
+
+    
+        if($cur->tid != 2)
+            p ::ticks
+            printf "RUNNING THREAD: tid= %-5d name= %-10s\n", $cur->tid, $cur->name
+        end
+
+        set $i = $i + 1
+        c
+    end
 end
     
