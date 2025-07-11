@@ -149,6 +149,13 @@ define test_trace
     c
     set $i = 0
 
+    # initialize counter
+    set $c0 = 0      
+    set $c1 = 0      
+    set $c2 = 0      
+    set $c3 = 0      
+    set $c4 = 0      
+
     while($i < 100000)
         set $cur = (struct thread *)((int)$esp & ~0xfff)
 
@@ -156,10 +163,43 @@ define test_trace
         if($cur->tid != 2)
             p ::ticks
             printf "RUNNING THREAD: tid= %-5d name= %-10s\n", $cur->tid, $cur->name
+
+            if $_streq($cur->name, "thread 0")
+                # count thread 0
+                set $c0 = $c0 + 1    
+            end
+            if $_streq($cur->name, "thread 1")
+                # count thread 1
+                set $c1 = $c1 + 1    
+            end
+            if $_streq($cur->name, "thread 2")
+                # count thread 2
+                set $c2 = $c2 + 1   
+            end
+            if $_streq($cur->name, "thread 3")
+                # count thread 3
+                set $c3 = $c3 + 1    
+            end
+            if $_streq($cur->name, "thread 4")
+                # count thread 4
+                set $c4 = $c4 + 1    
+            end
+
+            # exit loop when ticks >= 500 and main is running
+            if ::ticks >= 500 && $_streq($cur->name, "main")
+                set $i = 100000    
+            end
         end
 
         set $i = $i + 1
         c
     end
+
+    printf "\n=== COUNT RESULTS ===\n"
+    printf "thread 0 ran -> %d times\n", $c0    
+    printf "thread 1 ran -> %d times\n", $c1    
+    printf "thread 2 ran -> %d times\n", $c2    
+    printf "thread 3 ran -> %d times\n", $c3    
+    printf "thread 4 ran -> %d times\n", $c4    
 end
     
