@@ -1,5 +1,6 @@
 set print pretty on
 set pagination off
+source /home/dlacksdn/pintos/src/misc/gdb-macros
 
 define bre
     break thread_sleep
@@ -202,4 +203,53 @@ define test_trace
     printf "thread 3 ran -> %d times\n", $c3    
     printf "thread 4 ran -> %d times\n", $c4    
 end
+
+# 각 thread의 backtrace 출력
+# 결함이 많음. 수정 필요
+define abtthread
+    printf "main_thread\n"
+    btthread 0xc000e000
+    printf "\n"
+
+    printf "idle_thread\n"
+    btthread 0xc0103000
+    printf "\n"
+
+    printf "thread 0\n"
+    btthread 0xc0106000
+    printf "\n"
+
+    printf "thread 1\n"
+    btthread 0xc0107000
+    printf "\n"
+
+    printf "thread 2\n"
+    btthread 0xc0108000
+    printf "\n"
+
+    printf "thread 3\n"
+    btthread 0xc0109000
+    printf "\n"
+
+    printf "thread 4\n"
+    btthread 0xc010a000
+    printf "\n"
+end
+
+# 각 thread의 시작주소 출력
+define address
+    printf "main_thread : 0xc000e000\n"
+    printf "idle_thread : 0xc0103000\n"
+
+    set $e = all_list.head.next.next.next
+    set $i = 0
+
+    while ($e != &all_list.tail)
+        set $t = (struct thread *)((char *)$e - 32)
+        printf "thread %d : %p\n", $i, $t
+        set $e = $e->next
+        set $i = $i + 1
+    end
+end
+
     
