@@ -206,6 +206,7 @@ end
 
 # 각 thread의 backtrace 출력
 # 결함이 많음. 수정 필요
+# 모든 thread가 한 번씩 blocked 되어야하고, exit된 thread가 없어야 에러가 안 뜸
 define abtthread
     printf "main_thread\n"
     btthread 0xc000e000
