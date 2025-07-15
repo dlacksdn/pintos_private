@@ -14,6 +14,20 @@ enum thread_status
     THREAD_DYING        /* About to be destroyed. */
   };
 
+enum scheduler_type {
+  SCHED_ROUND_ROBIN,
+  SCHED_LOTTERY,
+  SCHED_STRIDE_SEQ,
+  SCHED_STRIDE_SORT
+};
+
+void set_scheduler(enum scheduler_type type);
+extern enum scheduler_type current_scheduler;
+extern int count[3];
+extern int count_stride[];
+extern int count_sort_stride[];
+
+
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
@@ -95,6 +109,13 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+    int tickets; // 기본 값 1, 추후 커스터마이징 가능
+    int stride;
+    int pass;
+
+    int perf_id; // performance 값(count용)
+    
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -133,6 +154,19 @@ const char *thread_name (void);
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
 
+void set_scheduler(enum scheduler_type type);
+
+struct thread *pick_lottery_thread(void);
+struct thread *pick_stride_seq_thread(void);
+struct thread *pick_stride_sort_thread(void);
+
+tid_t thread_create_lottery(const char *name, int priority, int tickets,
+                            thread_func *function, void *aux);
+tid_t thread_create_stride(const char *name, int priority, int tickets,
+                            thread_func *function, void *aux);
+
+
+
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
@@ -144,5 +178,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+
 
 #endif /* threads/thread.h */
