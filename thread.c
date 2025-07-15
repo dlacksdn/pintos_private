@@ -452,7 +452,7 @@ struct thread *pick_lottery_thread(void) {
   return list_entry(list_pop_front(&ready_list), struct thread, elem);
 }
 
-static struct thread *
+struct thread *
 pick_stride_seq_thread(void) {
   if (list_empty(&ready_list))
     return idle_thread;

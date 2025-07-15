@@ -17,7 +17,8 @@ enum thread_status
 enum scheduler_type {
   SCHED_ROUND_ROBIN,
   SCHED_LOTTERY,
-  SCHED_STRIDE_SEQ
+  SCHED_STRIDE_SEQ,
+  SCHED_STRIDE_SORT
 };
 
 void set_scheduler(enum scheduler_type type);
@@ -155,7 +156,8 @@ void thread_yield (void);
 void set_scheduler(enum scheduler_type type);
 
 struct thread *pick_lottery_thread(void);
-static struct thread *pick_stride_seq_thread(void);
+struct thread *pick_stride_seq_thread(void);
+
 tid_t thread_create_lottery(const char *name, int priority, int tickets,
                             thread_func *function, void *aux);
 tid_t thread_create_stride(const char *name, int priority, int tickets,
