@@ -187,7 +187,7 @@ define test_trace
             end
 
             # exit loop when ticks >= 500 and main is running
-            if ::ticks >= 500 && $_streq($cur->name, "main")
+            if ::ticks >= 100 && $_streq($cur->name, "main")
                 set $i = 100000    
             end
         end
