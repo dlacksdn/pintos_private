@@ -23,7 +23,7 @@ enum scheduler_type {
 void set_scheduler(enum scheduler_type type);
 extern enum scheduler_type current_scheduler;
 extern int count[3];
-extern int count_stride[3];
+extern int count_stride[];
 
 
 /* Thread identifier type.
@@ -154,9 +154,11 @@ void thread_yield (void);
 
 void set_scheduler(enum scheduler_type type);
 
-static struct thread *pick_lottery_thread(void);
+struct thread *pick_lottery_thread(void);
 static struct thread *pick_stride_seq_thread(void);
 tid_t thread_create_lottery(const char *name, int priority, int tickets,
+                            thread_func *function, void *aux);
+tid_t thread_create_stride(const char *name, int priority, int tickets,
                             thread_func *function, void *aux);
 
 

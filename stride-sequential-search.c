@@ -1,9 +1,10 @@
 #include "threads/thread.h"
 #include "devices/timer.h"
 #include <stdio.h>
+#include <inttypes.h>    /* PRId64 매크로를 위해 */
 
-#define N 3
-#define RUNNING_TIME 500  // ticks (약 1초)
+#define N 5
+#define RUNNING_TIME 5000  // ticks (약 1초)
 
 int count_stride[N];
 static volatile bool running = true;
@@ -22,24 +23,41 @@ thread_func_perf(void *aux) {
 }
 
 void test_stride_sequential_search(void) {
+  int64_t start = timer_ticks();
   set_scheduler(SCHED_STRIDE_SEQ);
 
-  int ticket_num[3] = {10, 20, 40};
+  int ticket_num[N] = {10, 20, 40, 50, 100};
+  int id[N];
 
   for (int i = 0; i < N; i++)
-    count[i] = 0;
+    id[i] = i;
+  
+  
+  for (int i = 0; i < N; i++) {
+    char name[16];
 
-  static int id[N] = {0,1,2};
-  thread_create_stride("thread 0", PRI_DEFAULT, 10, thread_func_perf, &id[0]);
-  thread_create_stride("thread 1", PRI_DEFAULT, 20, thread_func_perf, &id[1]);
-  thread_create_stride("thread 2", PRI_DEFAULT, 40, thread_func_perf, &id[2]);
+    snprintf (name, sizeof name, "thread %d", i);
+    thread_create_stride(name, PRI_DEFAULT, ticket_num[i], thread_func_perf, &id[i]);
+  }
 
   timer_sleep(RUNNING_TIME);
   running = false;
 
+  /* 1) 종료 시간 기록 */
+  int64_t end = timer_ticks();
+  int64_t elapsed = end - start;
+
+  /* 2) 밀리초(ms)로 환산: elapsed * 1000 / TIMER_FREQ */
+  int64_t elapsed_ms = elapsed * 1000 / TIMER_FREQ;
+
+  /* 3) 결과 출력 (정수만 사용) */
+  printf("=== Test elapsed: %" PRId64 " ticks (~%" PRId64 " ms) ===\n",
+         elapsed, elapsed_ms);
+
   printf("Stride Performance Result:\n");
   for (int i = 0; i < N; i++)
-    printf("thread%d (tickets=%d) ran %d times\n",
+    printf("thread %d (tickets = %d) ran %d times\n",
            i, ticket_num[i], count_stride[i]);
 }
+
 

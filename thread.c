@@ -63,7 +63,6 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
 
-static struct thread *pick_lottery_thread(void);
 struct thread *get_thread_by_tid(tid_t tid);
 static int next_thread_tickets = 1;
 
@@ -420,7 +419,7 @@ set_scheduler(enum scheduler_type type) {
   current_scheduler = type;
 }
 
-static struct thread *pick_lottery_thread(void) {
+struct thread *pick_lottery_thread(void) {
   if (list_empty(&ready_list))
     return idle_thread;
 
@@ -682,20 +681,14 @@ next_thread_to_run (void)
 
   if (current_scheduler == SCHED_LOTTERY) {
     struct thread *next = pick_lottery_thread();
-
-    // 스레드가 성능 측정 대상이면 count 증가
-    if (next->perf_id >= 0 && next->perf_id < 3) // main, idle 제외시키기
-      count[next->perf_id]++;
+    count[next->perf_id]++;
 
     return next;
   }
 
   if (current_scheduler == SCHED_STRIDE_SEQ) {
     struct thread *next = pick_stride_seq_thread();
-
-    // 스레드가 성능 측정 대상이면 count 증가
-    if (next->perf_id >= 0 && next->perf_id < 3) // main, idle 제외시키기
-      count_stride[next->perf_id]++;
+    count_stride[next->perf_id]++;
 
     return next;
   }
