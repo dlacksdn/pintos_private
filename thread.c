@@ -20,6 +20,8 @@
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
 
+#define BIG_STRIDE 1000
+
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
@@ -60,6 +62,12 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
+
+struct thread *get_thread_by_tid(tid_t tid);
+static int next_thread_tickets = 1;
+static int min_pass_num = 0;
+
+enum scheduler_type current_scheduler = SCHED_ROUND_ROBIN;
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -186,6 +194,11 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+
+  initial_thread->tickets = 1;
+  initial_thread->pass = 0;
+
+  random_init(timer_ticks());  // 시드 초기화
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -402,6 +415,143 @@ thread_yield (void)
   intr_set_level (old_level);
 }
 
+void
+set_scheduler(enum scheduler_type type) {
+  current_scheduler = type;
+}
+
+struct thread *pick_lottery_thread(void) {
+  if (list_empty(&ready_list))
+    return idle_thread;
+
+  int total_tickets = 0;
+  struct list_elem *e;
+
+  // 1. 전체 티켓 수 계산
+  for (e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e)) {
+    struct thread *t = list_entry(e, struct thread, elem);
+    total_tickets += t->tickets;  // 기본 값은 1
+  }
+
+  if (total_tickets == 0)
+    return list_entry(list_pop_front(&ready_list), struct thread, elem);
+
+  // 2. 난수 추첨 (1~total_tickets)
+  int winner = random_ulong() % total_tickets + 1;
+
+  // 3. 추첨된 티켓을 가진 thread 선택
+  for (e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e)) {
+    struct thread *t = list_entry(e, struct thread, elem);
+    if (winner <= t->tickets) {
+      list_remove(e);  // ready_list에서 꼭 제거해야 함!
+      return t;
+    }
+    winner -= t->tickets;
+  }
+
+  // fallback
+  return list_entry(list_pop_front(&ready_list), struct thread, elem);
+}
+
+struct thread *
+pick_stride_seq_thread(void) {
+  if (list_empty(&ready_list))
+    return idle_thread;
+
+  struct list_elem *e;
+  struct thread *min_t = NULL;
+
+  /* 1) 최소 pass 찾기 */
+  for (e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e)) {
+    struct thread *t = list_entry(e, struct thread, elem);
+    if (!min_t || t->pass < min_t->pass)
+      min_t = t;
+  }
+  ASSERT(min_t);
+
+  /* 2) 리스트에서 제거 */
+  list_remove(&min_t->elem);
+
+  /* 3) pass 갱신 */
+  min_t->pass += min_t->stride;  /* stride는 init_thread에서 BIG_STRIDE/tickets로 계산됨 */
+
+  return min_t;
+}
+
+/* 비교 함수: elem a, b 를 갖는 스레드의 pass 값 비교 */
+static bool
+stride_less (const struct list_elem *a,
+            const struct list_elem *b,
+            void *aux UNUSED)
+{
+  const struct thread *t1 = list_entry (a, struct thread, elem);
+  const struct thread *t2 = list_entry (b, struct thread, elem);
+  return t1->pass < t2->pass;
+}
+
+struct thread *
+pick_stride_sort_thread(void) {
+  struct thread *next;
+
+   if (list_empty (&ready_list))
+     return idle_thread;
+
+   /* 1) ready_list 를 pass 오름차순으로 정렬 */
+   list_sort (&ready_list, stride_less, NULL);
+
+   /* 2) 맨 앞 스레드를 꺼내고 */
+   next = list_entry (list_pop_front (&ready_list),
+                      struct thread, elem);
+
+   /* 3) 실행 후 새로운 pass 값을 설정 */
+   next->pass += next->stride;
+
+   return next;
+}
+
+struct thread *
+pick_stride_seq_new_thread(void) {
+  if (list_empty(&ready_list))
+    return idle_thread;
+
+  struct list_elem *e;
+  struct thread *min_t = NULL;
+
+  /* 1) 최소 pass 찾기 */
+  for (e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e)) {
+    struct thread *t = list_entry(e, struct thread, elem);
+    if (!min_t || t->pass < min_t->pass)
+      min_t = t;
+  }
+  ASSERT(min_t);
+  
+  /* 2) 리스트에서 제거 */
+  list_remove(&min_t->elem);
+
+  /* 3) pass 갱신 */
+  if (min_t -> tid != 1)
+    min_pass_num = min_t -> pass;
+    min_t -> pass += min_t->stride;  /* stride는 init_thread에서 BIG_STRIDE/tickets로 계산됨 */
+
+  return min_t;
+}
+
+tid_t thread_create_lottery(const char *name, int priority, int tickets,
+                            thread_func *function, void *aux) {
+  next_thread_tickets = tickets;  // 다음 스레드가 생성될 때 사용할 티켓 수 설정
+  tid_t tid = thread_create(name, priority, function, aux);
+  next_thread_tickets = 1;        // 다음 thread는 기본값 (1장)으로 초기화
+  return tid;
+}
+
+tid_t thread_create_stride(const char *name, int priority, int tickets,
+                            thread_func *function, void *aux) {
+  next_thread_tickets = tickets;  // 다음 스레드가 생성될 때 사용할 티켓 수 설정
+  tid_t tid = thread_create(name, priority, function, aux);
+  next_thread_tickets = 1;        // 다음 thread는 기본값 (1장)으로 초기화
+  return tid;
+}
+
 /* Invoke function 'func' on all threads, passing along 'aux'.
    This function must be called with interrupts off. */
 void
@@ -551,6 +701,17 @@ init_thread (struct thread *t, const char *name, int priority)
   t->tick_to_awake = INT64_MAX;
   t->magic = THREAD_MAGIC;
 
+  t->tickets = next_thread_tickets;
+  t->stride = t->stride = BIG_STRIDE / t->tickets;
+
+  if(!is_late_arrival)
+    t->pass = 0;
+  else
+    t->pass = min_pass_num;
+
+  t->perf_id=0;
+  
+
   list_push_back (&all_list, &t->allelem);
 }
 
@@ -577,8 +738,39 @@ next_thread_to_run (void)
 {
   if (list_empty (&ready_list))
     return idle_thread;
-  else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  
+  if (current_scheduler == SCHED_ROUND_ROBIN)
+    return list_entry(list_pop_front(&ready_list), struct thread, elem);
+
+  if (current_scheduler == SCHED_LOTTERY) {
+    struct thread *next = pick_lottery_thread();
+    count[next->perf_id]++;
+
+    return next;
+  }
+
+  if (current_scheduler == SCHED_STRIDE_SEQ) {
+    struct thread *next = pick_stride_seq_thread();
+    count_stride[next->perf_id]++;
+
+    return next;
+  }
+
+  if (current_scheduler == SCHED_STRIDE_SORT) {
+    struct thread *next = pick_stride_sort_thread();
+    count_sort_stride[next->perf_id]++;
+
+    return next;
+  }
+
+  if (current_scheduler == SCHED_STRIDE_SEQ_NEW) {
+    struct thread *next = pick_stride_seq_new_thread();
+    count_stride[next->perf_id]++;
+
+    return next;
+  }
+  
+  return list_entry (list_pop_front (&ready_list), struct thread, elem);
 }
 
 /* Completes a thread switch by activating the new thread's page
