@@ -6,7 +6,7 @@
 #define N 5
 #define RUNNING_TIME 5000  // ticks (약 1초)
 
-int count_sort_stride[N];
+int count_stride_sort[N];
 static volatile bool running = true;
 
 static volatile void
@@ -57,7 +57,7 @@ void test_stride_sort (void) {
   printf("Stride Performance Result:\n");
   for (int i = 0; i < N; i++)
     printf("thread %d (tickets = %d) ran %d times\n",
-           i, ticket_num[i], count_sort_stride[i]);
+           i, ticket_num[i], count_stride_sort[i]);
 }
 
 

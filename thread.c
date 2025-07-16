@@ -65,6 +65,7 @@ bool thread_mlfqs;
 
 struct thread *get_thread_by_tid(tid_t tid);
 static int next_thread_tickets = 1;
+static int min_pass_num = 0;
 
 enum scheduler_type current_scheduler = SCHED_ROUND_ROBIN;
 
@@ -508,6 +509,59 @@ pick_stride_sort_thread(void) {
    return next;
 }
 
+struct thread *
+pick_stride_seq_new_thread(void) {
+  if (list_empty(&ready_list))
+    return idle_thread;
+
+  struct list_elem *e;
+  struct thread *min_t = NULL;
+
+  /* 1) 최소 pass 찾기 */
+  for (e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e)) {
+    struct thread *t = list_entry(e, struct thread, elem);
+    if (!min_t || t->pass < min_t->pass)
+      min_t = t;
+  }
+  ASSERT(min_t);
+  
+  /* 2) 리스트에서 제거 */
+  list_remove(&min_t->elem);
+
+  /* 3) pass 갱신 */
+  if (min_t -> tid != 1)
+    min_pass_num = min_t -> pass;
+    min_t -> pass += min_t->stride;  /* stride는 init_thread에서 BIG_STRIDE/tickets로 계산됨 */
+
+  return min_t;
+}
+
+struct thread *
+pick_stride_seq_priority_thread(void) {
+  if (list_empty(&ready_list))
+    return idle_thread;
+
+  struct list_elem *e;
+  struct thread *min_t = NULL;
+
+  /* 1) 최소 pass 찾기 */
+  for (e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e)) {
+    struct thread *t = list_entry(e, struct thread, elem);
+    if (!min_t || t->pass < min_t->pass)
+      min_t = t;
+  }
+  ASSERT(min_t);
+
+  /* 2) 리스트에서 제거 */
+  list_remove(&min_t->elem);
+
+  /* 3) pass 갱신 */
+  min_t->pass += min_t->stride;  /* stride는 init_thread에서 BIG_STRIDE/tickets로 계산됨 */
+
+  return min_t;
+}
+
+
 tid_t thread_create_lottery(const char *name, int priority, int tickets,
                             thread_func *function, void *aux) {
   next_thread_tickets = tickets;  // 다음 스레드가 생성될 때 사용할 티켓 수 설정
@@ -674,8 +728,17 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
 
   t->tickets = next_thread_tickets;
+  if(current_scheduler == SCHED_STRIDE_SEQ_PRIORITY) {
+    t->tickets *= t->priority;
+  }
+
+
   t->stride = t->stride = BIG_STRIDE / t->tickets;
-  t->pass = 0;
+
+  if(!is_late_arrival)
+    t->pass = 0;
+  else
+    t->pass = min_pass_num;
 
   t->perf_id=0;
   
@@ -726,7 +789,21 @@ next_thread_to_run (void)
 
   if (current_scheduler == SCHED_STRIDE_SORT) {
     struct thread *next = pick_stride_sort_thread();
-    count_sort_stride[next->perf_id]++;
+    count_stride_sort[next->perf_id]++;
+
+    return next;
+  }
+
+  if (current_scheduler == SCHED_STRIDE_SEQ_NEW) {
+    struct thread *next = pick_stride_seq_new_thread();
+    count_stride_new[next->perf_id]++;
+
+    return next;
+  }
+
+  if (current_scheduler == SCHED_STRIDE_SEQ_PRIORITY) {
+    struct thread *next = pick_stride_seq_priority_thread();
+    count_stride_priority[next->perf_id]++;
 
     return next;
   }

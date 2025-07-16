@@ -18,14 +18,20 @@ enum scheduler_type {
   SCHED_ROUND_ROBIN,
   SCHED_LOTTERY,
   SCHED_STRIDE_SEQ,
-  SCHED_STRIDE_SORT
+  SCHED_STRIDE_SORT,
+  SCHED_STRIDE_SEQ_NEW,
+  SCHED_STRIDE_SEQ_PRIORITY
 };
 
 void set_scheduler(enum scheduler_type type);
 extern enum scheduler_type current_scheduler;
 extern int count[3];
 extern int count_stride[];
-extern int count_sort_stride[];
+extern int count_stride_sort[];
+extern int count_stride_new[];
+extern int count_stride_priority[];
+
+extern bool is_late_arrival;
 
 
 /* Thread identifier type.
@@ -159,6 +165,8 @@ void set_scheduler(enum scheduler_type type);
 struct thread *pick_lottery_thread(void);
 struct thread *pick_stride_seq_thread(void);
 struct thread *pick_stride_sort_thread(void);
+struct thread *pick_stride_seq_new_thread(void);
+struct thread *pick_stride_seq_priority_thread(void);
 
 tid_t thread_create_lottery(const char *name, int priority, int tickets,
                             thread_func *function, void *aux);
