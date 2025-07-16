@@ -65,7 +65,7 @@ void test_stride_sequential_search_new(void) {
   printf("Stride Performance Result:\n");
   for (int i = 0; i < N; i++)
     printf("thread %d (tickets = %d) ran %d times\n",
-           i, ticket_num[i], count_stride[i]);
+           i, ticket_num[i], count_stride_new[i]);
 }
 
 
