@@ -93,6 +93,36 @@ define sall
     end
 end
 
+define sall_test
+    printf "%-5s %-10s %8s %8s %6s %8s\n", \
+        "tid", "name", "tickets", "stride", "pass", "status"
+
+    set $e = all_list.head.next
+    while ($e != &all_list.tail)
+        set $t = (struct thread *)((char *)$e - 32)
+        printf "%-5d %-8s %8d %8d %8d  ", $t->tid, $t->name, $t->tickets, $t->stride, $t->pass
+
+        if $t->status == THREAD_RUNNING
+            printf " running\n"
+        else
+            if $t->status == THREAD_READY
+                printf " ready\n"
+            else
+                if $t->status == THREAD_BLOCKED
+                    printf " blocked\n"
+                else
+                    printf " unknown(%d)\n", $t->status
+                end
+            end
+        end
+
+        set $e = $e->next
+    end
+
+    # set $cur = (struct thread *)((unsigned long)$esp & ~0xfff)
+    # printf "current_running -> %s\n", $cur->name
+end
+
 define size
     printf "all_list_size: %d\n", list_size(&all_list)
     printf "blocked_list_size: %d\n", list_size(&blocked_list)
@@ -187,7 +217,7 @@ define test_trace
             end
 
             # exit loop when ticks >= 500 and main is running
-            if ::ticks >= 100 && $_streq($cur->name, "main")
+            if ::ticks >= 7000 && $_streq($cur->name, "main")
                 set $i = 100000    
             end
         end
@@ -196,12 +226,14 @@ define test_trace
         c
     end
 
+    set $total = $c0 + $c1 + $c2 + $c3 + $c4
+
     printf "\n=== COUNT RESULTS ===\n"
-    printf "thread 0 ran -> %d times\n", $c0    
-    printf "thread 1 ran -> %d times\n", $c1    
-    printf "thread 2 ran -> %d times\n", $c2    
-    printf "thread 3 ran -> %d times\n", $c3    
-    printf "thread 4 ran -> %d times\n", $c4    
+    printf "thread 0 ran -> %d times (%.1f%%)\n", $c0, 100.0 * $c0 / $total
+    printf "thread 1 ran -> %d times (%.1f%%)\n", $c1, 100.0 * $c1 / $total
+    printf "thread 2 ran -> %d times (%.1f%%)\n", $c2, 100.0 * $c2 / $total
+    printf "thread 3 ran -> %d times (%.1f%%)\n", $c3, 100.0 * $c3 / $total
+    printf "thread 4 ran -> %d times (%.1f%%)\n", $c4, 100.0 * $c4 / $total    
 end
 
 # 각 thread의 backtrace 출력
